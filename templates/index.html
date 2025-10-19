@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Log Viewer</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); min-height:100vh; padding:20px; }
+.container { max-width:1200px; margin:0 auto; background:white; border-radius:10px; box-shadow:0 10px 40px rgba(0,0,0,0.2); overflow:hidden; transition:max-width 0.5s ease; }
+.container.expanded { max-width:1600px; }
+.header { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:30px; text-align:center; }
+.header h1 { font-size:2.5em; margin-bottom:0; }
+.content { padding:30px; }
+.form-group { margin-bottom:20px; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+.form-row.full { grid-template-columns:1fr; }
+label { display:block; margin-bottom:8px; font-weight:600; color:#333; }
+input, select {
+    width:100%;
+    padding:12px;
+    border:2px solid #e0e0e0;
+    border-radius:5px;
+    font-size:14px;
+    font-family:'Courier New', monospace;
+    transition:border-color 0.3s;
+    background:white;
+}
+input:focus, select:focus {
+    outline:none;
+    border-color:#667eea;
+    box-shadow:0 0 0 3px rgba(102,126,234,0.1);
+}
+.button-group { display:flex; gap:10px; margin-top:20px; }
+button { flex:1; padding:12px 24px; border:none; border-radius:5px; font-size:16px; font-weight:600; cursor:pointer; transition:all 0.3s; }
+.btn-start { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; }
+.btn-start:hover { transform:translateY(-2px); box-shadow:0 5px 20px rgba(102,126,234,0.4); }
+.btn-stop { background:#ff6b6b; color:white; }
+.btn-stop:hover { background:#ff5252; transform:translateY(-2px); }
+.btn-clear { background:#95a5a6; color:white; }
+.btn-clear:hover { background:#7f8c8d; }
+button:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+.status { padding:15px; border-radius:5px; margin-bottom:20px; font-weight:600; display:none; }
+.status.show { display:block; }
+.status.success { background:#d4edda; color:#155724; border:1px solid #c3e6cb; }
+.status.error { background:#f8d7da; color:#721c24; border:1px solid #f5c6cb; }
+.status.info { background:#d1ecf1; color:#0c5460; border:1px solid #bee5eb; }
+.log-container { background:#1e1e1e; color:#00ff00; border-radius:5px; padding:15px; height:500px; overflow-y:auto; font-family:'Courier New', monospace; font-size:13px; line-height:1.5; border:2px solid #e0e0e0; margin-top:20px; display:none; }
+.log-line { white-space:pre-wrap; word-wrap:break-word; }
+.log-container::-webkit-scrollbar { width:8px; }
+.log-container::-webkit-scrollbar-track { background:#2d2d2d; border-radius:5px; }
+.log-container::-webkit-scrollbar-thumb { background:#667eea; border-radius:5px; }
+.log-container::-webkit-scrollbar-thumb:hover { background:#764ba2; }
+.info-text { color:#666; font-size:13px; margin-top:10px; }
+#inputFields { display:block; }
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1 id="headerText">📊 Live Log Viewer</h1>
+    </div>
+    <div class="content">
+        <div id="status" class="status"></div>
+
+        <div id="inputFields">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="username">Jumphost</label>
+                    <select id="username">
+                        <option value="jhnonprodqa">jhnonprodqa</option>
+                        <option value="jhuat">jhuat</option>
+                        <option value="jhproductqa">jhproductqa</option>
+                        <option value="jhmeuat">jhmeuat</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="host">Service IP</label>
+                    <input type="text" id="host" placeholder="e.g., 10.0.0.1">
+                </div>
+            </div>
+
+            <div class="form-row full">
+                <div class="form-group">
+                    <label for="log_path">Log File</label>
+                    <select id="log_path">
+                        <option value="/var/log/bidgely/ingesterJobs/gbUserDataIngester/gbUserDataIngester.log">IngesterJob Logs</option>
+                        <option value="/var/log/bidgely/aggregationServices/aggregationMessageProcessor/aggregationMessageProcessor.log">Aggregation Logs</option>
+                        <option value="/var/log/bidgely/aggregationServices/aggregationMessageProcessorPriority/aggregationMessageProcessorPriority.log">AggregationPriority Logs</option>
+                        <option value="/var/log/bidgely/emailServices/emailer/emailer.log">Emailer Logs</option>
+                        <option value="/var/log/bidgely/pdfGenerationService/pdfGeneration/pdfGeneration.log">PDFGeneration Logs</option>
+                    </select>
+                </div>
+            </div>
+
+            <p class="info-text">🔐 Passwords are loaded from .env file for security</p>
+
+            <div class="button-group">
+                <button class="btn-start" id="startBtn" onclick="startStreaming()">▶ Start Streaming</button>
+                <button class="btn-stop" id="stopBtn" onclick="stopStreaming()" disabled>⏹ Stop Streaming</button>
+                <button class="btn-clear" id="clearBtn" onclick="clearLogs()">🗑 Clear Logs</button>
+            </div>
+        </div>
+
+        <div class="log-container" id="logContainer"></div>
+    </div>
+</div>
+
+<script>
+const socket = io();
+let isStreaming = false;
+
+socket.on('connect', () => showStatus('Connected to server', 'success'));
+
+socket.on('connected', (data) => {
+    showStatus(data.message,'success');
+    isStreaming = true;
+    updateButtons();
+
+    // Hide input fields, show logs
+    document.getElementById('inputFields').style.display = 'none';
+    document.getElementById('logContainer').style.display = 'block';
+
+    // Expand container width
+    document.querySelector('.container').classList.add('expanded');
+
+    // Update header text dynamically
+    const logSelect = document.getElementById('log_path');
+    const jumphostSelect = document.getElementById('username');
+    const logName = logSelect.options[logSelect.selectedIndex].text;
+    const jumphost = jumphostSelect.value;
+
+    document.getElementById('headerText').textContent = `Live logs of ${logName} in ${jumphost}`;
+});
+
+socket.on('status', (data) => showStatus(data.message,'info'));
+
+socket.on('log_data', (data) => {
+    const logContainer = document.getElementById('logContainer');
+    const logLine = document.createElement('div');
+    logLine.className='log-line';
+    logLine.textContent = data.data;
+    logContainer.appendChild(logLine);
+    logContainer.scrollTop = logContainer.scrollHeight;
+});
+
+socket.on('error', (data) => { showStatus(data.message,'error'); isStreaming=false; updateButtons(); });
+
+socket.on('disconnected', (data) => { 
+    showStatus(data.message,'info'); 
+    isStreaming=false; 
+    updateButtons();
+
+    // Hide logs, show input fields again
+    document.getElementById('logContainer').style.display='none';
+    document.getElementById('inputFields').style.display='block';
+
+    // Reset header text
+    document.getElementById('headerText').textContent='📊 Live Log Viewer';
+
+    // Reset container width
+    document.querySelector('.container').classList.remove('expanded');
+});
+
+function startStreaming() {
+    const jumphost = document.getElementById('username').value.trim();
+    const host = document.getElementById('host').value.trim();
+    const log_path = document.getElementById('log_path').value.trim();
+
+    if (!jumphost || !host || !log_path) {
+        showStatus('Please fill all fields: Jumphost, Host, and Log File','error');
+        return;
+    }
+
+    showStatus('Connecting...','info');
+    socket.emit('start_streaming', {jumphost, host, log_path});
+}
+
+function stopStreaming() { socket.emit('stop_streaming'); }
+
+function clearLogs() { 
+    document.getElementById('logContainer').innerHTML=''; 
+    showStatus('Logs cleared','info'); 
+}
+
+function showStatus(message,type) {
+    const statusDiv=document.getElementById('status');
+    statusDiv.textContent=message;
+    statusDiv.className=`status show ${type}`;
+    if(type==='success'||type==='info') setTimeout(()=>{ statusDiv.classList.remove('show'); },5000);
+}
+
+function updateButtons() {
+    document.getElementById('startBtn').disabled = isStreaming;
+    document.getElementById('stopBtn').disabled = !isStreaming;
+}
+</script>
+</body>
+</html>
