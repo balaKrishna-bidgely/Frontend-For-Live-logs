@@ -101,7 +101,7 @@ class SSHLogStreamer:
 
 @app.route('/')
 def index():
-    return render_template('chatgpt_index.html')
+    return render_template('index.html')
 
 
 @socketio.on('connect')
