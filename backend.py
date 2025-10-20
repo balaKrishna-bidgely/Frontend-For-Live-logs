@@ -66,8 +66,13 @@ class SSHLogStreamer:
 
             socketio.emit('status', {'message': 'Login successful. Navigating to log directory...'}, room=self.room_id)
 
-            file_path = self.log_path
-            self.channel.send(f'tail -f {file_path}\n')
+            # Clean up the log path to avoid double slashes
+            file_path = self.log_path.strip()
+
+            # Extract directory and filename
+            log_dir = os.path.dirname(file_path)
+            log_file = os.path.basename(file_path)
+            self.channel.send(f'cd "{log_dir}" && tail -f "{log_file}"\n')
 
             self.is_running = True
             socketio.emit('connected', {'message': f'Streaming logs from {self.service_ip}'}, room=self.room_id)
