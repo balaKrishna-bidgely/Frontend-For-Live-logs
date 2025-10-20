@@ -39,21 +39,23 @@ input:focus, select:focus {
   outline:none; border-color:#667eea;
   box-shadow:0 0 0 3px rgba(102,126,234,0.1);
 }
-.button-group {
-  display:flex; gap:10px; margin-top:10px;
+
+/* Icon button styles */
+.icon-buttons {
+  display:flex; justify-content:center; align-items:center;
+  gap:15px; margin-top:10px;
 }
-button {
-  flex:1; padding:12px 24px; border:none;
-  border-radius:5px; font-size:16px; font-weight:600;
-  cursor:pointer; transition:all 0.3s;
+.icon-btn {
+  background:none; border:none; cursor:pointer;
+  font-size:22px; padding:8px 12px;
+  border-radius:8px; transition:background 0.3s, transform 0.2s;
 }
-.btn-start { background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; }
-.btn-start:hover { transform:translateY(-2px); box-shadow:0 5px 20px rgba(102,126,234,0.4); }
-.btn-stop { background:#ff6b6b; color:white; }
-.btn-stop:hover { background:#ff5252; transform:translateY(-2px); }
-.btn-clear { background:#95a5a6; color:white; }
-.btn-clear:hover { background:#7f8c8d; }
-button:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
+.icon-btn:hover { background:rgba(102,126,234,0.15); transform:translateY(-2px); }
+.icon-btn:disabled { opacity:0.4; cursor:not-allowed; transform:none; }
+.icon-btn.start { color:#4CAF50; }  /* green */
+.icon-btn.stop { color:#E74C3C; }   /* red */
+.icon-btn.clear { color:#7F8C8D; }  /* gray */
+
 .status {
   padding:15px; border-radius:5px; margin-bottom:20px;
   font-weight:600; display:none;
@@ -76,6 +78,18 @@ button:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
 .log-container::-webkit-scrollbar-thumb:hover { background:#764ba2; }
 .info-text { color:#666; font-size:13px; margin-top:10px; }
 .hidden { display:none; }
+
+/* Tooltip styling */
+.icon-btn[title]:hover::after {
+  content:attr(title);
+  position:absolute;
+  background:#333; color:#fff;
+  padding:4px 8px; border-radius:4px;
+  font-size:12px; top:-35px;
+  white-space:nowrap;
+  transform:translateX(-50%);
+}
+.icon-buttons { position:relative; }
 </style>
 </head>
 <body>
@@ -110,6 +124,8 @@ button:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
             <option value="/var/log/bidgely/ingesterJobs/gbUserDataIngester/gbUserDataIngester.log">IngesterJob Logs</option>
             <option value="/var/log/bidgely/aggregationServices/aggregationMessageProcessor/aggregationMessageProcessor.log">Aggregation Logs</option>
             <option value="/var/log/bidgely/aggregationServices/aggregationMessageProcessorPriority/aggregationMessageProcessorPriority.log">AggregationPriority Logs</option>
+            <option value="/var/log/bidgely/pyamidisagg/pydisagg/gb_disagg.log">Disagg Logs</option>
+            <option value="/var/log/bidgely/pyamidisagg/pydisaggpriority/gb_disagg.log">DisaggPriority Logs</option>
             <option value="/var/log/bidgely/emailServices/emailer/emailer.log">Emailer Logs</option>
             <option value="/var/log/bidgely/pdfGenerationService/pdfGeneration/pdfGeneration.log">PDFGeneration Logs</option>
           </select>
@@ -119,11 +135,11 @@ button:disabled { opacity:0.5; cursor:not-allowed; transform:none; }
       <p class="info-text">🔐 Passwords are loaded from .env file for security</p>
     </div>
 
-    <!-- Buttons stay visible always -->
-    <div class="button-group">
-      <button class="btn-start" id="startBtn" onclick="startStreaming()">▶ Start Streaming</button>
-      <button class="btn-stop" id="stopBtn" onclick="stopStreaming()" disabled>⏹ Stop Streaming</button>
-      <button class="btn-clear" id="clearBtn" onclick="clearLogs()">🗑 Clear Logs</button>
+    <!-- Simple icon buttons -->
+    <div class="icon-buttons">
+      <button class="icon-btn start" id="startBtn" title="Start Streaming" onclick="startStreaming()">▶</button>
+      <button class="icon-btn stop" id="stopBtn" title="Stop Streaming" onclick="stopStreaming()" disabled>⏹</button>
+      <button class="icon-btn clear" id="clearBtn" title="Clear Logs" onclick="clearLogs()">🗑</button>
     </div>
 
     <div class="log-container" id="logContainer"></div>
@@ -141,14 +157,10 @@ socket.on('connected', (data) => {
   isStreaming = true;
   updateButtons();
 
-  // Hide input fields only
   document.getElementById('inputFields').classList.add('hidden');
   document.getElementById('logContainer').style.display = 'block';
-
-  // Expand container
   document.querySelector('.container').classList.add('expanded');
 
-  // Update header
   const logSelect = document.getElementById('log_path');
   const jumphostSelect = document.getElementById('username');
   const logName = logSelect.options[logSelect.selectedIndex].text;
@@ -158,7 +170,6 @@ socket.on('connected', (data) => {
 });
 
 socket.on('status', (data) => showStatus(data.message,'info'));
-
 socket.on('log_data', (data) => {
   const logContainer = document.getElementById('logContainer');
   const logLine = document.createElement('div');
@@ -167,22 +178,14 @@ socket.on('log_data', (data) => {
   logContainer.appendChild(logLine);
   logContainer.scrollTop = logContainer.scrollHeight;
 });
-
 socket.on('error', (data) => { showStatus(data.message,'error'); isStreaming=false; updateButtons(); });
-
 socket.on('disconnected', (data) => { 
   showStatus(data.message,'info'); 
   isStreaming=false; 
   updateButtons();
-
-  // Restore inputs
   document.getElementById('inputFields').classList.remove('hidden');
   document.getElementById('logContainer').style.display='none';
-
-  // Reset header
   document.getElementById('headerText').textContent='📊 Live Log Viewer';
-
-  // Reset container width
   document.querySelector('.container').classList.remove('expanded');
 });
 
@@ -195,18 +198,14 @@ function startStreaming() {
     showStatus('Please fill all fields: Jumphost, Host, and Log File','error');
     return;
   }
-
   showStatus('Connecting...','info');
   socket.emit('start_streaming', {jumphost, host, log_path});
 }
-
 function stopStreaming() { socket.emit('stop_streaming'); }
-
 function clearLogs() { 
   document.getElementById('logContainer').innerHTML=''; 
   showStatus('Logs cleared','info'); 
 }
-
 function showStatus(message,type) {
   const statusDiv=document.getElementById('status');
   statusDiv.textContent=message;
@@ -214,7 +213,6 @@ function showStatus(message,type) {
   if(type==='success'||type==='info') 
     setTimeout(()=>{ statusDiv.classList.remove('show'); },4000);
 }
-
 function updateButtons() {
   document.getElementById('startBtn').disabled = isStreaming;
   document.getElementById('stopBtn').disabled = !isStreaming;
