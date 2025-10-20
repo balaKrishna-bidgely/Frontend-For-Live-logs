@@ -20,7 +20,7 @@ A web-based dashboard to view live logs from remote services via SSH in real-tim
 
 1. **Clone or navigate to the project directory:**
    ```bash
-   cd /Users/dipteshdutta/Desktop/DashBoardForLogs
+   cd ~/Desktop/DashBoardForLogs
    ```
 
 2. **Create a virtual environment (recommended):**
@@ -32,6 +32,15 @@ A web-based dashboard to view live logs from remote services via SSH in real-tim
 3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
+   ```
+
+4. **Set up environment variables:**
+- Create a `.env` file in the project root
+- Add the following variables:
+   ```
+   SSH_USERNAME=your_ssh_username
+   SSH_PASSWORD=your_ssh_password
+   SERVICE_PASSWORD=your_service_password
    ```
 
 ## Usage
@@ -138,14 +147,4 @@ DashBoardForLogs/
 ├── requirements.txt        # Python dependencies
 └── README.md              # This file
 ```
-
-## Future Enhancements
-
-- [ ] SSH key-based authentication
-- [ ] Multiple simultaneous log streams
-- [ ] Log filtering and search
-- [ ] Log export functionality
-- [ ] User authentication
-- [ ] Persistent connection history
-- [ ] Log rotation handling
 
