@@ -14,6 +14,7 @@ app.config['SECRET_KEY'] = 'your-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 active_connections = {}
+PORT = 5500
 
 # Map jumphost aliases to hostnames/IPs
 JUMP_HOSTS = {
@@ -53,7 +54,7 @@ class SSHLogStreamer:
                 return
 
             self.channel = self.client.invoke_shell()
-            time.sleep(10)
+            time.sleep(1)
             socketio.emit('status', {'message': f'Logging into service {self.service_ip}...'}, room=self.room_id)
 
             # Run login-bops
@@ -167,4 +168,8 @@ def stop_streaming():
 
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5500, debug=False)
+    print("\n" + "="*60)
+    print("🚀 Live Log Viewer is running!")
+    print(f"📍 URL: http://localhost:{PORT}")
+    print("="*60 + "\n")
+    socketio.run(app, host='0.0.0.0', port=PORT, debug=False)
