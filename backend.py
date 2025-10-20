@@ -41,7 +41,29 @@ class SSHLogStreamer:
             self.client = paramiko.SSHClient()
             self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
             socketio.emit('status', {'message': f'Connecting to {self.jumphost}...'}, room=self.room_id)
-            self.client.connect(hostname=self.jumphost, username=os.getenv('SSH_USERNAME'), password=self.ssh_password, timeout=20)
+
+            username = os.getenv('SSH_USERNAME')
+            ssh_key_path = os.getenv('SSH_KEY_PATH')
+
+            # Try SSH key authentication first
+            if ssh_key_path and os.path.exists(ssh_key_path):
+                print(f"DEBUG: Using SSH key authentication: {ssh_key_path}")
+                self.client.connect(
+                    hostname=self.jumphost,
+                    username=username,
+                    key_filename=ssh_key_path,
+                    timeout=20
+                )
+            else:
+                # Fall back to password authentication
+                print(f"DEBUG: Using password authentication")
+                self.client.connect(
+                    hostname=self.jumphost,
+                    username=username,
+                    password=self.ssh_password,
+                    timeout=20
+                )
+
             socketio.emit('status', {'message': f'SSH connection established to {self.jumphost}'}, room=self.room_id)
             return True
         except Exception as e:

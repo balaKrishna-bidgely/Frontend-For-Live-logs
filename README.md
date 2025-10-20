@@ -41,6 +41,7 @@ A web-based dashboard to view live logs from remote services via SSH in real-tim
    SSH_USERNAME=your_ssh_username
    SSH_PASSWORD=your_ssh_password
    SERVICE_PASSWORD=your_service_password
+   SSH_KEY_PATH=~/.ssh/your_key.pem (optional)
    ```
 
 ## Usage
