@@ -53,6 +53,8 @@ body {
   padding:10px 15px; font-size:15px; color:#333; transition:background 0.2s;
 }
 .menu-content button:hover { background:#f2f2f2; }
+.menu-content button:disabled { color:#ccc; cursor:not-allowed; }
+.menu-content button:disabled:hover { background:none; }
 .menu-content i { width:20px; }
 
 .content { padding:25px; }
@@ -121,6 +123,8 @@ input:focus, select:focus {
     <div class="menu" id="menu">
       <button id="menuBtn"><i class="fas fa-bars"></i></button>
       <div class="menu-content" id="menuContent">
+        <button id="pauseBtn" onclick="pauseStreaming()" disabled><i class="fas fa-pause"></i> Pause</button>
+        <button id="resumeBtn" onclick="resumeStreaming()" disabled style="display:none;"><i class="fas fa-play"></i> Resume</button>
         <button id="stopBtn" onclick="stopStreaming()" disabled><i class="fas fa-stop"></i> Stop</button>
         <button id="clearBtn" onclick="clearLogs()"><i class="fas fa-trash"></i> Clear</button>
       </div>
@@ -177,6 +181,7 @@ input:focus, select:focus {
 <script>
 const socket = io();
 let isStreaming = false;
+let isPaused = false;
 
 document.getElementById('menuBtn').addEventListener('click', () => {
   document.getElementById('menuContent').classList.toggle('show');
@@ -186,6 +191,7 @@ socket.on('connect', () => showStatus('Connected to server', 'success'));
 socket.on('connected', (data) => {
   showStatus(data.message, 'success');
   isStreaming = true;
+  isPaused = false;
   updateButtons();
 
   // Hide input fields and Start button
@@ -209,12 +215,15 @@ socket.on('connected', (data) => {
 
 socket.on('status', (data) => showStatus(data.message, 'info'));
 socket.on('log_data', (data) => {
-  const logContainer = document.getElementById('logContainer');
-  const logLine = document.createElement('div');
-  logLine.className = 'log-line';
-  logLine.textContent = data.data;
-  logContainer.appendChild(logLine);
-  logContainer.scrollTop = logContainer.scrollHeight;
+  // Only display logs if not paused
+  if (!isPaused) {
+    const logContainer = document.getElementById('logContainer');
+    const logLine = document.createElement('div');
+    logLine.className = 'log-line';
+    logLine.textContent = data.data;
+    logContainer.appendChild(logLine);
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
 });
 socket.on('error', (data) => {
   showStatus(data.message, 'error');
@@ -224,6 +233,7 @@ socket.on('error', (data) => {
 socket.on('disconnected', (data) => {
   showStatus(data.message, 'info');
   isStreaming = false;
+  isPaused = false;
   updateButtons();
 
   document.getElementById('inputFields').classList.remove('hidden');
@@ -246,11 +256,28 @@ function startStreaming() {
   showStatus('Connecting...', 'info');
   socket.emit('start_streaming', { jumphost, host, log_path });
 }
-function stopStreaming() { socket.emit('stop_streaming'); }
+
+function pauseStreaming() {
+  isPaused = true;
+  showStatus('⏸️ Logs paused - new logs will not be displayed', 'info');
+  updateButtons();
+}
+
+function resumeStreaming() {
+  isPaused = false;
+  showStatus('▶️ Logs resumed - displaying live logs', 'success');
+  updateButtons();
+}
+
+function stopStreaming() {
+  socket.emit('stop_streaming');
+}
+
 function clearLogs() {
   document.getElementById('logContainer').innerHTML = '';
   showStatus('Logs cleared', 'info');
 }
+
 function showStatus(message, type) {
   const statusDiv = document.getElementById('status');
   statusDiv.textContent = message;
@@ -258,7 +285,12 @@ function showStatus(message, type) {
   if (type === 'success' || type === 'info')
     setTimeout(() => { statusDiv.classList.remove('show'); }, 4000);
 }
+
 function updateButtons() {
+  document.getElementById('pauseBtn').disabled = !isStreaming || isPaused;
+  document.getElementById('resumeBtn').disabled = !isStreaming || !isPaused;
+  document.getElementById('resumeBtn').style.display = isPaused ? 'flex' : 'none';
+  document.getElementById('pauseBtn').style.display = isPaused ? 'none' : 'flex';
   document.getElementById('stopBtn').disabled = !isStreaming;
 }
 </script>
